@@ -35,7 +35,6 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        # cache: 'pip' # 移除这行
 
     - name: Install dependencies
       run: |
@@ -60,9 +59,6 @@ jobs:
           --onefile \
           --assume-yes-for-downloads \
           --output-filename=${{ matrix.artifact_name }} \
-          --company-name="Cradle Build System" \
-          --product-name="Cradle" \
-          --file-description="Universal C Build System" \
           --remove-output \
           Cradle.py
 
@@ -76,6 +72,9 @@ jobs:
           --company-name="Cradle Build System" `
           --product-name="Cradle" `
           --file-description="Universal C Build System" `
+          --file-version=1.0.0.0 `
+          --product-version=1.0.0.0 `
+          --copyright="Copyright (c) 2024" `
           --windows-console-mode=attach `
           --remove-output `
           Cradle.py
