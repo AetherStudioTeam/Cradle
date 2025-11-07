@@ -1,33 +1,128 @@
-name: Build Cradle
+name: Build with Nuitka
+
 on:
-workflow_dispatch:
-push:
-tags:
-- 'v*'
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
 jobs:
-build:
-strategy:
-matrix:
-include:
-- os: ubuntu-latest
-artifact_name: Cradle-Linux-x64
-executable_name: Cradle.bin
-- os: windows-latest
-artifact_name: Cradle-Windows-x64
-executable_name: Cradle.exe
-- os: macos-latest
-artifact_name: Cradle-macOS-arm64
-executable_name: Cradle.bin
-runs-on: 
-matrix.ossteps:−uses:actions/checkout@v4−uses:actions/setup−python@v5with:python−version: 
-′
- 3.11 
-′
- −name:Installsystemdependenciesif:runner.os== 
-′
- Linux 
-′
- run:∣sudoapt−getupdatesudoapt−getinstall−ygccpython3−dev−name:InstallPythondependenciesrun:∣pipinstallwcwidthpipinstallnuitkaordered−setzstandard−name:BuildExecutablerun:∣python−mnuitka −−standalone −−onefile −−include−module=wcwidth −−include−module=ctypes −−output−dir=dist −−remove−output Cradle.py−uses:actions/upload−artifact@v4with:name:
-{{ matrix.artifact_name }}
-path: dist/${{ matrix.executable_name }}
-retention-days: 30
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: Cradle-linux
+            asset_name: Cradle-linux-x64
+          - os: windows-latest
+            artifact_name: Cradle-windows.exe
+            asset_name: Cradle-windows-x64.exe
+          - os: macos-latest
+            artifact_name: Cradle-macos
+            asset_name: Cradle-macos-x64
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install nuitka ordered-set zstandard wcwidth
+
+    - name: Install compiler (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc patchelf ccache
+
+    - name: Install compiler (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install ccache
+
+    - name: Build with Nuitka (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        python -m nuitka \
+          --onefile \
+          --assume-yes-for-downloads \
+          --output-filename=${{ matrix.artifact_name }} \
+          --company-name="Cradle Build System" \
+          --product-name="Cradle" \
+          --file-description="Universal C Build System" \
+          --remove-output \
+          Cradle.py
+
+    - name: Build with Nuitka (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        python -m nuitka `
+          --onefile `
+          --assume-yes-for-downloads `
+          --output-filename=${{ matrix.artifact_name }} `
+          --company-name="Cradle Build System" `
+          --product-name="Cradle" `
+          --file-description="Universal C Build System" `
+          --windows-console-mode=attach `
+          --remove-output `
+          Cradle.py
+
+    - name: Test executable (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        chmod +x ${{ matrix.artifact_name }}
+        ./${{ matrix.artifact_name }} --help
+
+    - name: Test executable (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        .\${{ matrix.artifact_name }} --help
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.asset_name }}
+        path: ${{ matrix.artifact_name }}
+        if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Display structure of downloaded files
+      run: ls -R artifacts
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/Cradle-linux-x64/Cradle-linux
+          artifacts/Cradle-windows-x64.exe/Cradle-windows.exe
+          artifacts/Cradle-macos-x64/Cradle-macos
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
