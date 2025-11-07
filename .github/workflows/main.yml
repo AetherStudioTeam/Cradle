@@ -1,0 +1,41 @@
+name: Build Cross-Platform
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Nuitka
+      run: pip install nuitka ordered-set zstandard
+    
+    - name: Build Executable
+      run: |
+        python -m nuitka \
+          --standalone \
+          --onefile \
+          --enable-console \
+          --include-module=wcwidth \
+          --include-module=ctypes \
+          --output-dir=dist \
+          --remove-output \
+          Cradle.py
+    
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: Cradle-${{ matrix.os }}
+        path: dist/
