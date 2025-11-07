@@ -1,26 +1,46 @@
-name: Build Cross-Platform
+name: Build Cradle
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: Cradle-Linux-x64
+            executable_name: Cradle.bin
+          - os: windows-latest
+            artifact_name: Cradle-Windows-x64
+            executable_name: Cradle.exe
+          - os: macos-latest
+            artifact_name: Cradle-macOS-x64
+            executable_name: Cradle.bin
     
     runs-on: ${{ matrix.os }}
     
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
     
+    - name: Install dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc python3-dev
+    
     - name: Install Nuitka
-      run: pip install nuitka ordered-set zstandard
+      run: |
+        pip install nuitka ordered-set zstandard
     
     - name: Build Executable
       run: |
@@ -35,7 +55,7 @@ jobs:
           Cradle.py
     
     - name: Upload Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: Cradle-${{ matrix.os }}
-        path: dist/
+        name: ${{ matrix.artifact_name }}
+        path: dist/${{ matrix.executable_name }}
