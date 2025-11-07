@@ -1,4 +1,4 @@
-name: Build with Nuitka
+name: Build Cradle
 
 on:
   push:
@@ -75,7 +75,6 @@ jobs:
           --file-version=1.0.0.0 `
           --product-version=1.0.0.0 `
           --copyright="Copyright (c) 2024" `
-          --windows-console-mode=attach `
           --remove-output `
           Cradle.py
 
