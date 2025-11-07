@@ -1,62 +1,55 @@
-name: Build Cross-Platform
-
+name: Build Cradle
 on:
-  workflow_dispatch:
-  push:
-    branches: [ main ]
-    tags: [ 'v*' ]
-
+workflow_dispatch:
+push:
+tags: [ 'v*' ]
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            artifact_name: Cradle-Linux-x64
-            executable_name: Cradle.bin
-          - os: windows-latest
-            artifact_name: Cradle-Windows-x64
-            executable_name: Cradle.exe
-          - os: macos-latest
-            artifact_name: Cradle-macOS-x64
-            executable_name: Cradle.bin
-    
-    runs-on: ${{ matrix.os }}
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies (Ubuntu)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc python3-dev
-    
-    - name: Install Nuitka
-      run: |
-        pip install nuitka ordered-set zstandard
-    
-    - name: Build Executable
-      run: |
-        python -m nuitka \
-          --standalone \
-          --onefile \
-          --enable-console \
-          --include-module=wcwidth \
-          --include-module=ctypes \
-          --output-dir=dist \
-          --remove-output \
-          Cradle.py
-    
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.artifact_name }}
-        path: dist/${{ matrix.executable_name }}
-        retention-days: 30
+build:
+strategy:
+matrix:
+include:
+- os: ubuntu-latest
+artifact_name: Cradle-Linux-x64
+executable_name: Cradle.bin
+- os: windows-latest
+artifact_name: Cradle-Windows-x64
+executable_name: Cradle.exe
+- os: macos-latest
+artifact_name: Cradle-macOS-x64
+executable_name: Cradle.bin
+runs-on: ${{ matrix.os }}
+
+steps:
+- uses: actions/checkout@v4
+
+- uses: actions/setup-python@v5
+  with:
+    python-version: '3.11'
+
+- name: Install system dependencies
+  if: runner.os == 'Linux'
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y gcc python3-dev
+
+- name: Install Python dependencies
+  run: |
+    pip install wcwidth
+    pip install nuitka ordered-set zstandard
+
+- name: Build Executable
+  run: |
+    python -m nuitka \
+      --standalone \
+      --onefile \
+      --include-module=wcwidth \
+      --include-module=ctypes \
+      --output-dir=dist \
+      --remove-output \
+      Cradle.py
+
+- uses: actions/upload-artifact@v4
+  with:
+    name: ${{ matrix.artifact_name }}
+    path: dist/${{ matrix.executable_name }}
+    retention-days: 30
