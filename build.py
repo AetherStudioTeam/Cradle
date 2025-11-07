@@ -78,7 +78,7 @@ class BuildConfig:
         }
     }
     
-    def __init__(self, config_file: str = "build.config.json"):
+    def __init__(self, config_file: str = "Cradle.config.json"):
         self.config_file = Path(config_file)
         self.config = self.load_config()
     
@@ -747,8 +747,8 @@ Examples:
                        help='Number of parallel workers')
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='Verbose output')
-    parser.add_argument('--config', default='build.config.json',
-                       help='Configuration file (default: build.config.json)')
+    parser.add_argument('--config', default='Cradle.config.json',
+                       help='Configuration file (default: Cradle.config.json)')
     
     args = parser.parse_args()
     
