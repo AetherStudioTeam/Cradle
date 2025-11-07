@@ -1,10 +1,10 @@
-name: Build Cradle
+name: Build Cross-Platform
 
 on:
   workflow_dispatch:
   push:
-    tags:
-      - 'v*'
+    branches: [ main ]
+    tags: [ 'v*' ]
 
 jobs:
   build:
@@ -59,3 +59,4 @@ jobs:
       with:
         name: ${{ matrix.artifact_name }}
         path: dist/${{ matrix.executable_name }}
+        retention-days: 30
