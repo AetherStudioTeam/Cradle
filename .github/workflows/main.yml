@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build Cradle (Auto Release)
 
 on:
   push:
@@ -35,94 +35,93 @@ jobs:
             asset_name: Cradle-macos-x64
 
     runs-on: ${{ matrix.os }}
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Get version
-      id: version
-      shell: bash
-      run: |
-        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-          VERSION="${{ github.event.inputs.version }}"
-        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-          VERSION=${GITHUB_REF#refs/tags/v}
-        else
-          # 自动生成版本号：日期+短commit hash
-          VERSION="$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
-        fi
-        VERSION_WIN=$(echo $VERSION | sed 's/\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*/\1.\2.\3.0/')
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "version_win=$VERSION_WIN" >> $GITHUB_OUTPUT
-        echo "Version: $VERSION (Windows: $VERSION_WIN)"
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION="$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
+          fi
+          VERSION_WIN=$(echo $VERSION | sed 's/\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*/\1.\2.\3.0/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_win=$VERSION_WIN" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION (Windows: $VERSION_WIN)"
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install nuitka ordered-set zstandard wcwidth
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install nuitka ordered-set zstandard wcwidth
 
-    - name: Install compiler (Ubuntu)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc patchelf ccache
+      - name: Install compiler (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc patchelf ccache
 
-    - name: Install compiler (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        brew install ccache
+      - name: Install compiler (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install ccache
 
-    - name: Build with Nuitka (Linux/macOS)
-      if: runner.os != 'Windows'
-      run: |
-        python -m nuitka \
-          --onefile \
-          --assume-yes-for-downloads \
-          --output-filename=${{ matrix.artifact_name }} \
-          --remove-output \
-          Cradle.py
+      - name: Build with Nuitka (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          python -m nuitka \
+            --onefile \
+            --assume-yes-for-downloads \
+            --output-filename=${{ matrix.artifact_name }} \
+            --remove-output \
+            Cradle.py
 
-    - name: Build with Nuitka (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        python -m nuitka `
-          --onefile `
-          --assume-yes-for-downloads `
-          --output-filename=${{ matrix.artifact_name }} `
-          --company-name="Cradle Build System" `
-          --product-name="Cradle" `
-          --file-description="Universal C Build System" `
-          --file-version=${{ steps.version.outputs.version_win }} `
-          --product-version=${{ steps.version.outputs.version_win }} `
-          --copyright="Copyright (c) 2024" `
-          --remove-output `
-          Cradle.py
+      - name: Build with Nuitka (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          python -m nuitka `
+            --onefile `
+            --assume-yes-for-downloads `
+            --output-filename=${{ matrix.artifact_name }} `
+            --company-name="Cradle Build System" `
+            --product-name="Cradle" `
+            --file-description="Universal C Build System" `
+            --file-version=${{ steps.version.outputs.version_win }} `
+            --product-version=${{ steps.version.outputs.version_win }} `
+            --copyright="Copyright (c) 2024" `
+            --remove-output `
+            Cradle.py
 
-    - name: Test executable (Linux/macOS)
-      if: runner.os != 'Windows'
-      run: |
-        chmod +x ${{ matrix.artifact_name }}
-        ./${{ matrix.artifact_name }} --help
+      - name: Test executable (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x ${{ matrix.artifact_name }}
+          ./${{ matrix.artifact_name }} --help
 
-    - name: Test executable (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        .\${{ matrix.artifact_name }} --help
+      - name: Test executable (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          .\${{ matrix.artifact_name }} --help
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.asset_name }}
-        path: ${{ matrix.artifact_name }}
-        if-no-files-found: error
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.artifact_name }}
+          if-no-files-found: error
 
   # 方案1：推送到 main 分支自动创建开发版本
   release-dev:
@@ -131,60 +130,60 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Get version
-      id: version
-      run: |
-        VERSION="dev-$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - name: Get version
+        id: version
+        run: |
+          VERSION="dev-$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
-    - name: Delete existing dev release
-      continue-on-error: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        gh release delete dev --yes --cleanup-tag || true
+      - name: Delete existing dev release
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete dev --yes --cleanup-tag || true
 
-    - name: Create Development Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: dev
-        name: "🚧 Development Build - ${{ steps.version.outputs.version }}"
-        body: |
-          ## 🚧 开发版本
-          
-          **⚠️ 这是自动构建的开发版本，可能不稳定**
-          
-          - 构建时间: ${{ github.event.head_commit.timestamp }}
-          - Commit: ${{ github.sha }}
-          - 作者: ${{ github.event.head_commit.author.name }}
-          
-          ### 📝 最新提交
-          ```
-          ${{ github.event.head_commit.message }}
-          ```
-          
-          ### 📦 下载
-          请根据你的操作系统选择对应的文件下载。
-        files: \vert{}
-          artifacts/Cradle-linux-x64/Cradle-linux
-          artifacts/Cradle-windows-x64.exe/Cradle-windows.exe
-          artifacts/Cradle-macos-x64/Cradle-macos
-        draft: false
-        prerelease: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Development Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: dev
+          name: "🚧 Development Build - ${{ steps.version.outputs.version }}"
+          body: |
+            ## 🚧 开发版本
+
+            **⚠️ 这是自动构建的开发版本，可能不稳定**
+
+            - 构建时间: ${{ github.event.head_commit.timestamp }}
+            - Commit: ${{ github.sha }}
+            - 作者: ${{ github.event.head_commit.author.name }}
+
+            ### 📝 最新提交
+            ```
+            ${{ github.event.head_commit.message }}
+            ```
+
+            ### 📦 下载
+            请根据你的操作系统选择对应的文件下载。
+          files: |
+            artifacts/Cradle-linux-x64/Cradle-linux
+            artifacts/Cradle-windows-x64.exe/Cradle-windows.exe
+            artifacts/Cradle-macos-x64/Cradle-macos
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # 方案2：推送 tag 创建正式版本
   release-stable:
@@ -193,38 +192,38 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
-    steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
 
-    - name: Create Stable Release
-      uses: softprops/action-gh-release@v1
-      with:
-        name: "Release ${{ github.ref_name }}"
-        body: \vert{}
-          ## 🎉 正式版本 ${{ github.ref_name }}
-          
-          ### 📦 下载
-          请根据你的操作系统选择对应的文件：
-          
-          - **Windows**: `Cradle-windows.exe`
-          - **Linux**: `Cradle-linux`
-          - **macOS**: `Cradle-macos`
-          
-          ### 📝 更新内容
-          详见下方自动生成的发布说明。
-        files: |
-          artifacts/Cradle-linux-x64/Cradle-linux
-          artifacts/Cradle-windows-x64.exe/Cradle-windows.exe
-          artifacts/Cradle-macos-x64/Cradle-macos
-        draft: false
-        prerelease: false
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Stable Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "Release ${{ github.ref_name }}"
+          body: |
+            ## 🎉 正式版本 ${{ github.ref_name }}
+
+            ### 📦 下载
+            请根据你的操作系统选择对应的文件：
+
+            - **Windows**: `Cradle-windows.exe`
+            - **Linux**: `Cradle-linux`
+            - **macOS**: `Cradle-macos`
+
+            ### 📝 更新内容
+            详见下方自动生成的发布说明。
+          files: |
+            artifacts/Cradle-linux-x64/Cradle-linux
+            artifacts/Cradle-windows-x64.exe/Cradle-windows.exe
+            artifacts/Cradle-macos-x64/Cradle-macos
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # 方案3：手动触发创建版本
   release-manual:
@@ -233,33 +232,33 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
-    steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
 
-    - name: Create Manual Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: "v${{ github.event.inputs.version }}"
-        name: "Release v${{ github.event.inputs.version }}"
-        body: \vert{}
-          ## 📦 版本 v${{ github.event.inputs.version }}
-          
-          手动创建的发布版本
-          
-          ### 下载
-          - **Windows**: `Cradle-windows.exe`
-          - **Linux**: `Cradle-linux`
-          - **macOS**: `Cradle-macos`
-        files: |
-          artifacts/Cradle-linux-x64/Cradle-linux
-          artifacts/Cradle-windows-x64.exe/Cradle-windows.exe
-          artifacts/Cradle-macos-x64/Cradle-macos
-        draft: false
-        prerelease: ${{ github.event.inputs.prerelease == 'true' }}
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Manual Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ github.event.inputs.version }}"
+          name: "Release v${{ github.event.inputs.version }}"
+          body: |
+            ## 📦 版本 v${{ github.event.inputs.version }}
+
+            手动创建的发布版本
+
+            ### 下载
+            - **Windows**: `Cradle-windows.exe`
+            - **Linux**: `Cradle-linux`
+            - **macOS**: `Cradle-macos`
+          files: |
+            artifacts/Cradle-linux-x64/Cradle-linux
+            artifacts/Cradle-windows-x64.exe/Cradle-windows.exe
+            artifacts/Cradle-macos-x64/Cradle-macos
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
